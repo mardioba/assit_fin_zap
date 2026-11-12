@@ -27,6 +27,7 @@ assit_fin_zap/
 │   └── tests/        # testes automatizados
 ├── frontend/         # Painel web (login + dashboard)
 ├── docs/             # Decisões técnicas e relatórios de fase
+├── iniciar.sh        # script de início local (backend + frontend)
 ├── docker-compose.yml
 └── .env.example      # modelo de configuração (copie para .env)
 ```
@@ -35,7 +36,21 @@ assit_fin_zap/
 
 Requisitos: Node.js ≥ 22 e npm.
 
-### 1. Backend
+### 0. Início rápido (script)
+
+```bash
+./iniciar.sh            # backend + frontend
+./iniciar.sh backend    # só a API  (http://localhost:4000)
+./iniciar.sh frontend   # só o painel (http://localhost:5173)
+./iniciar.sh --help     # ajuda
+```
+
+Na primeira execução o script faz tudo sozinho: cria `backend/.env`
+(a partir de `.env.example`), gera os segredos JWT, instala as
+dependências, aplica as migrações do SQLite e sobe os dois processos.
+`Ctrl+C` encerra backend e frontend.
+
+### 1. Backend (manual)
 
 ```bash
 cd backend
