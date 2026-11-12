@@ -25,6 +25,8 @@ model User {
   // role: "USER" | "ADMIN" (controle de acesso por usuário — item 8)
   role         String         @default("USER")
   isActive     Boolean        @default(true)
+  // Telefone WhatsApp vinculado (E.164, ex.: 5511999999999) — Fase 3
+  whatsappPhone String?       @unique
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
   refreshTokens RefreshToken[]
@@ -33,6 +35,7 @@ model User {
   accounts     Account[]
   transactions Transaction[]
   transfers    Transfer[]
+  conversationState ConversationState?
 }
 
 // Refresh tokens armazenados como HASH (nunca o valor em claro) para que
@@ -144,4 +147,24 @@ model Transfer {
   createdAt     DateTime @default(now())
 
   @@index([userId, date])
+}
+
+// Estado da conversa WhatsApp (confirmação pendente) — Fase 3.
+// Guarda a movimentação aguardando confirmação antes de gravar (item 3).
+model ConversationState {
+  id         String   @id @default(cuid())
+  userId     String   @unique
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // JSON com a movimentação interpretada pendente de confirmação
+  pendingJson String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+// Proteção contra duplicidade de mensagens do WhatsApp (item 8).
+// PK = wamid (ID da mensagem na Meta) — reentregas do webhook são ignoradas.
+model ProcessedMessage {
+  id        String   @id
+  userId    String?
+  createdAt DateTime @default(now())
 }

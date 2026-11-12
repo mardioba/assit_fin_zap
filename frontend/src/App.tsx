@@ -6,6 +6,7 @@ import { DashboardPage } from "./pages/DashboardPage";
 import { TransactionsPage } from "./pages/TransactionsPage";
 import { CategoriesPage } from "./pages/CategoriesPage";
 import { AccountsPage } from "./pages/AccountsPage";
+import { WhatsAppPage } from "./pages/WhatsAppPage";
 
 function Protected({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -35,6 +36,7 @@ export default function App() {
         <Route path="/movimentacoes" element={<TransactionsPage />} />
         <Route path="/categorias" element={<CategoriesPage />} />
         <Route path="/contas" element={<AccountsPage />} />
+        <Route path="/whatsapp" element={<WhatsAppPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

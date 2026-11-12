@@ -135,3 +135,52 @@ movimentações (`SetNull`) — dado histórico permanece íntegro.
 `isDefault=true`. São **configuração de uso**, não dados financeiros fictícios
 (regra 11.5 respeitada). O usuário pode renomear/excluir todas; novas são
 criadas sob demanda com `UNIQUE(userId, name, type)`.
+
+## D-015 — Interface única de IA com provedores substituíveis
+
+**Data:** Fase 3 | **Status:** aceito
+
+`ai.schema.ts` define o contrato JSON (intent + transação + consulta) validado
+por Zod. OpenAI, Gemini e o interpretador **local pt-BR** implementam o mesmo
+contrato — o resto do sistema não sabe qual está ativo. `AI_PROVIDER=auto`
+escolhe por disponibilidade de chave. O local mantém o sistema funcional e
+testável **sem custos e sem rede** (13 testes dedicados); trocar para IA real
+é mudar uma variável de ambiente.
+
+## D-016 — Nunca gravar sem validação; nunca inventar valores
+
+**Data:** Fase 3 | **Status:** aceito
+
+A IA é um **interpretabor, não uma fonte de dados**: toda saída passa por Zod;
+valores são conferidos (>0, centavos inteiros); consultas são executadas pelo
+servidor com `groupBy` no banco do usuário. A IA não recebe os dados
+financeiros — apenas emite a *intenção*. Itens 5 e 3 do escopo.
+
+## D-017 — Deduplicação de webhook via PK do wamid
+
+**Data:** Fase 3 | **Status:** aceito
+
+A Meta pode reentregar mensagens. `ProcessedMessage.id = wamid` (PK) transforma
+a reentrega em erro de unique → resposta `duplicate`, sem efeitos colaterais.
+Mais simples e mais garantido que janela de tempo.
+
+## D-018 — Confirmação antes de gravar informação ambígua
+
+**Data:** Fase 3 | **Status:** aceito
+
+Estado pendente por usuário (`ConversationState`, 1:1 com `User`):
+- `fill` — falta valor/descrição → pergunta e completa na próxima mensagem;
+- `confirm` — IA marcou `ambiguous` → pede "sim/não" antes de gravar.
+Mensagem clara completa grava direto (exemplo do escopo: *"Despesa de R$ 50,00
+registrada na categoria Alimentação."*). Qualquer outra resposta descarta o
+pendente e reinterpreta — nunca trava a conversa.
+
+## D-019 — Modo local para WhatsApp (outbox) sem credenciais
+
+**Data:** Fase 3 | **Status:** aceito
+
+`whatsapp.client.ts` envia pela Graph API quando `WHATSAPP_*` está configurado;
+caso contrário, empilha em um `outbox` em memória. Permite exercitar o fluxo
+completo (webhook → IA → banco → resposta) em dev/testes **sem violar a regra
+de usar a API oficial**: em produção a API é obrigatória (o status no painel
+indica "Modo local" vs "Configurada").

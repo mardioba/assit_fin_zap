@@ -4,6 +4,7 @@ export type User = {
   email: string;
   role: "USER" | "ADMIN";
   createdAt?: string;
+  whatsappPhone?: string | null;
 };
 
 export type Category = {

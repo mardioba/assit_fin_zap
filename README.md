@@ -1,9 +1,9 @@
 # 💰 Assistente Financeiro Inteligente via WhatsApp
 
 Sistema de gestão financeira com interpretação por IA e integração ao WhatsApp.
-Este repositório está na **FASE 2 (Gestão financeira)** — ver
-[docs/FASE2-RELATORIO.md](docs/FASE2-RELATORIO.md) e
-[docs/FASE1-RELATORIO.md](docs/FASE1-RELATORIO.md).
+Este repositório está na **FASE 3 (WhatsApp + IA)** — relatórios em
+[docs/](docs/): [FASE1](docs/FASE1-RELATORIO.md), [FASE2](docs/FASE2-RELATORIO.md),
+[FASE3](docs/FASE3-RELATORIO.md).
 
 ## Stack
 
@@ -58,7 +58,7 @@ Acesse `http://localhost:5173`, crie uma conta e verá o dashboard.
 ### 3. Testes
 
 ```bash
-cd backend && npm test           # 64 testes (auth, financeiro, relatórios, segurança)
+cd backend && npm test           # 95 testes (auth, financeiro, IA, WhatsApp, segurança)
 npm run typecheck                # TypeScript strict
 ```
 
@@ -81,11 +81,22 @@ docker compose up --build -d
 Todas documentadas em [`.env.example`](.env.example). **Nunca** coloque senhas ou
 tokens diretamente no código — apenas em `.env` (ignorado pelo Git).
 
+## WhatsApp e IA (Fase 3)
+
+1. **Sem credenciais (atual):** o interpretador **local pt-BR** e o envio em
+   modo local já funcionam — veja a tela *WhatsApp* no painel.
+2. **Com API oficial (produção):** preencha no `.env`:
+   `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_VERIFY_TOKEN`,
+   `WHATSAPP_APP_SECRET` e aponte o webhook da Meta para
+   `https://SEU_DOMINIO/api/whatsapp/webhook`.
+3. **IA:** defina `OPENAI_API_KEY` ou `GEMINI_API_KEY` (com `AI_PROVIDER=auto`).
+   Sem chaves, o interpretador local é usado automaticamente.
+
 ## Roadmap
 
 - ✅ **Fase 1** — Fundação: estrutura, Docker, banco, auth JWT, dashboard
 - ✅ **Fase 2** — Receitas, despesas, categorias, contas, histórico, consultas
-- ⬜ **Fase 3** — WhatsApp Cloud API + interpretação com IA
+- ✅ **Fase 3** — WhatsApp Cloud API + interpretação com IA
 - ⬜ **Fase 4** — Áudio, comprovantes, cartões, recorrências, relatórios
 - ⬜ **Fase 5** — Testes de segurança, tratamento de erros, VPS
 
@@ -101,6 +112,10 @@ tokens diretamente no código — apenas em `.env` (ignorado pelo Git).
 | POST | `/api/accounts/transfer` | Transferência entre contas |
 | GET/POST | `/api/transactions` | Movimentações com filtros e paginação |
 | GET | `/api/reports/summary` `/by-category` `/monthly` | Consultas e gráficos |
+| GET/POST | `/api/whatsapp/webhook` | Verificação Meta + recepção (HMAC, anti-duplicidade) |
+| POST | `/api/whatsapp/send` `/test-interpret` | Envio pelo painel e teste do interpretador |
+| GET | `/api/whatsapp/status` | Status da integração (sem expor segredos) |
+| PATCH | `/api/users/me` | Perfil + `whatsappPhone` (vínculo do número) |
 
 ## Documentação
 

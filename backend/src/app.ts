@@ -13,6 +13,7 @@ import { categoriesRouter } from "./modules/categories/categories.routes.js";
 import { accountsRouter } from "./modules/accounts/accounts.routes.js";
 import { transactionsRouter } from "./modules/transactions/transactions.routes.js";
 import { reportsRouter } from "./modules/reports/reports.routes.js";
+import { whatsappRouter } from "./modules/whatsapp/whatsapp.routes.js";
 
 export function createApp(): express.Express {
   const app = express();
@@ -25,7 +26,10 @@ export function createApp(): express.Express {
       credentials: true,
     }),
   );
-  app.use(express.json({ limit: "1mb" }));
+  app.use(express.json({ limit: "1mb", verify: (req, _res, buf) => {
+    // Corpo bruto para validação da assinatura HMAC do webhook (Meta).
+    (req as { rawBody?: Buffer }).rawBody = buf;
+  } }));
   app.use(cookieParser());
 
   // Limite global anti-abuso.
@@ -46,6 +50,7 @@ export function createApp(): express.Express {
   app.use("/api/accounts", accountsRouter);
   app.use("/api/transactions", transactionsRouter);
   app.use("/api/reports", reportsRouter);
+  app.use("/api/whatsapp", whatsappRouter);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

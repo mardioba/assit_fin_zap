@@ -13,6 +13,12 @@ usersRouter.use(requireAuth);
 
 const updateSchema = z.object({
   name: z.string().min(2).max(120).optional(),
+  // Telefone WhatsApp em E.164 sem sinal (ex.: 5511999999999)
+  whatsappPhone: z
+    .string()
+    .transform((v) => v.replace(/\D/g, ""))
+    .pipe(z.string().regex(/^\d{10,15}$/))
+    .nullish(),
 });
 
 usersRouter.get(
@@ -21,7 +27,15 @@ usersRouter.get(
     const { sub } = (req as AuthedRequest).user!;
     const user = await prisma.user.findUnique({
       where: { id: sub },
-      select: { id: true, name: true, email: true, role: true, createdAt: true, isActive: true },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        createdAt: true,
+        isActive: true,
+        whatsappPhone: true,
+      },
     });
     if (!user) throw notFound("Usuário não encontrado");
     res.json({ user });
@@ -36,7 +50,14 @@ usersRouter.patch(
     const user = await prisma.user.update({
       where: { id: sub },
       data,
-      select: { id: true, name: true, email: true, role: true, createdAt: true },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        createdAt: true,
+        whatsappPhone: true,
+      },
     });
     await audit({ userId: sub, action: "user.update", entityType: "user", entityId: user.id, req });
     res.json({ user });

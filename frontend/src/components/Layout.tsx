@@ -24,6 +24,7 @@ export function Layout() {
                 { to: "/movimentacoes", label: "Movimentações" },
                 { to: "/categorias", label: "Categorias" },
                 { to: "/contas", label: "Contas" },
+                { to: "/whatsapp", label: "WhatsApp" },
               ].map((item) => (
                 <NavLink
                   key={item.to}
