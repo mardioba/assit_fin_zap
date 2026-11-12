@@ -19,16 +19,25 @@ export function Layout() {
               💰 Assistente Financeiro
             </span>
             <nav className="flex gap-4 text-sm">
-              <NavLink
-                to="/"
-                className={({ isActive }) =>
-                  isActive
-                    ? "font-medium text-emerald-700"
-                    : "text-slate-500 hover:text-slate-800"
-                }
-              >
-                Dashboard
-              </NavLink>
+              {[
+                { to: "/", label: "Dashboard" },
+                { to: "/movimentacoes", label: "Movimentações" },
+                { to: "/categorias", label: "Categorias" },
+                { to: "/contas", label: "Contas" },
+              ].map((item) => (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  end={item.to === "/"}
+                  className={({ isActive }) =>
+                    isActive
+                      ? "font-medium text-emerald-700"
+                      : "text-slate-500 hover:text-slate-800"
+                  }
+                >
+                  {item.label}
+                </NavLink>
+              ))}
             </nav>
           </div>
           <div className="flex items-center gap-3 text-sm">

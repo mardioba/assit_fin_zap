@@ -99,3 +99,39 @@ foram fixados em versões resolvidas e testadas (`prisma`/`@prisma/client` em
 SPA com proxy `/api` → `:4000` em dev; em produção, Nginx faz reverse proxy.
 Gráficos com Recharts. Code-splitting do Recharts adiado para Fase 5
 (aviso de bundle > 500 kB).
+
+## D-011 — Transferências entre contas não são receitas/despesas
+
+**Data:** Fase 2 | **Status:** aceito
+
+Modelo `Transfer` separado de `Transaction`. Transferência altera o saldo de
+duas contas, mas **nunca** entra nos totais de receitas/despesas nem nos
+gráficos — regra financeira padrão (evita inflar faturamento). Consequência:
+saldo total = Σ saldos iniciais + receitas − despesas (transferências se anulam).
+
+## D-012 — Saldos calculados via agregação, sem coluna desnormalizada
+
+**Data:** Fase 2 | **Status:** aceito
+
+Não existe coluna `balance` na conta: o saldo é calculado (`groupBy` de
+movimentações + transferências). Evita dessincronização (o clássico bug de
+"saldo corrompido"). Se houver lentidão com milhares de lançamentos, otimizar
+com coluna atualizada + gatilho/index — decisão futura documentada aqui.
+
+## D-013 — Exclusão bloqueada para conta com movimentações
+
+**Data:** Fase 2 | **Status:** aceito
+
+Conta com histórico não pode ser apagada (409 `ACCOUNT_IN_USE`); o caminho é
+desativar (`isActive=false`). Protege a integridade dos saldos e a rastreabilidade
+auditoria/LGPD. Categorias, ao contrário, são excluídas e desvinculam
+movimentações (`SetNull`) — dado histórico permanece íntegro.
+
+## D-014 — Categorias padrão criadas no cadastro
+
+**Data:** Fase 2 | **Status:** aceito
+
+12 categorias (8 despesa, 4 receita) criadas em `POST /register` com
+`isDefault=true`. São **configuração de uso**, não dados financeiros fictícios
+(regra 11.5 respeitada). O usuário pode renomear/excluir todas; novas são
+criadas sob demanda com `UNIQUE(userId, name, type)`.

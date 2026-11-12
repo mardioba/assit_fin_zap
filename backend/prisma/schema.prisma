@@ -1,13 +1,12 @@
-// Schema Prisma — Fase 1 (Fundação)
+// Schema Prisma — FASE 2 (Gestão financeira)
 //
 // DECISÃO TÉCNICA: o schema é 100% compatível com SQLite (dev/teste local,
 // ambiente sem Docker) e PostgreSQL (produção). Por isso:
 //   - NÃO usamos enums (SQLite não suporta) -> campos String documentados;
 //   - NÃO usamos tipos Json (portabilidade) -> metadados em String JSON;
-//   - Valores financeiros futuros (Fase 2) serão armazenados em CENTAVOS (Int)
-//     para evitar problemas de ponto flutuante e garantir soma exata.
+//   - Valores financeiros armazenados em CENTAVOS (Int) para soma exata.
 // Para migrar para Postgres: trocar `provider = "sqlite"` por `"postgresql"`
-// e executar `prisma migrate dev` (as migrações geradas são portáveis).
+// e executar `prisma migrate dev`.
 
 generator client {
   provider = "prisma-client-js"
@@ -23,13 +22,17 @@ model User {
   name         String
   email        String         @unique
   passwordHash String
-  // role: "USER" | "ADMIN" (controle de acesso por usuário — Fase 1/7)
+  // role: "USER" | "ADMIN" (controle de acesso por usuário — item 8)
   role         String         @default("USER")
   isActive     Boolean        @default(true)
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
   refreshTokens RefreshToken[]
   auditLogs    AuditLog[]
+  categories   Category[]
+  accounts     Account[]
+  transactions Transaction[]
+  transfers    Transfer[]
 }
 
 // Refresh tokens armazenados como HASH (nunca o valor em claro) para que
@@ -62,4 +65,83 @@ model AuditLog {
   createdAt  DateTime @default(now())
 
   @@index([userId, createdAt])
+}
+
+// Categorias personalizadas por usuário (Fase 2).
+model Category {
+  id           String        @id @default(cuid())
+  userId       String
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name         String
+  // type: "INCOME" | "EXPENSE"
+  type         String
+  color        String?
+  // true para as categorias padrões criadas no cadastro
+  isDefault    Boolean       @default(false)
+  createdAt    DateTime      @default(now())
+  transactions Transaction[]
+
+  // Um usuário não pode ter duas categorias com o mesmo nome e tipo.
+  @@unique([userId, name, type])
+  @@index([userId])
+}
+
+// Contas bancárias, dinheiro em espécie e carteiras digitais (Fase 2).
+model Account {
+  id                 String        @id @default(cuid())
+  userId             String
+  user               User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name               String
+  // type: "BANK" | "CASH" | "WALLET"
+  type               String
+  initialBalanceCents Int          @default(0)
+  isActive           Boolean       @default(true)
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+  transactions       Transaction[]
+  transfersFrom      Transfer[]    @relation("TransferOrigin")
+  transfersTo        Transfer[]    @relation("TransferDestiny")
+
+  @@index([userId])
+}
+
+// Movimentações: receitas e despesas (Fase 2).
+model Transaction {
+  id            String    @id @default(cuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // type: "INCOME" | "EXPENSE"
+  type          String
+  amountCents   Int
+  description   String
+  date          DateTime
+  categoryId    String?
+  category      Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  accountId     String?
+  account       Account?  @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  // paymentMethod: "PIX" | "CASH" | "CREDIT" | "DEBIT" | "TRANSFER" | "OTHER"
+  paymentMethod String?
+  establishment String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([userId, date])
+  @@index([userId, type, date])
+}
+
+// Transferências entre contas (afetam saldos, NÃO entram em receitas/despesas).
+model Transfer {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fromAccountId String
+  fromAccount   Account  @relation("TransferOrigin", fields: [fromAccountId], references: [id], onDelete: Cascade)
+  toAccountId   String
+  toAccount     Account  @relation("TransferDestiny", fields: [toAccountId], references: [id], onDelete: Cascade)
+  amountCents   Int
+  description   String?
+  date          DateTime
+  createdAt     DateTime @default(now())
+
+  @@index([userId, date])
 }

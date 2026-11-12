@@ -9,6 +9,10 @@ import { authRouter } from "./modules/auth/auth.routes.js";
 import { usersRouter } from "./modules/users/users.routes.js";
 import { dashboardRouter } from "./modules/dashboard/dashboard.routes.js";
 import { healthRouter } from "./modules/health/health.routes.js";
+import { categoriesRouter } from "./modules/categories/categories.routes.js";
+import { accountsRouter } from "./modules/accounts/accounts.routes.js";
+import { transactionsRouter } from "./modules/transactions/transactions.routes.js";
+import { reportsRouter } from "./modules/reports/reports.routes.js";
 
 export function createApp(): express.Express {
   const app = express();
@@ -38,6 +42,10 @@ export function createApp(): express.Express {
   app.use("/api/auth", authRouter);
   app.use("/api/users", usersRouter);
   app.use("/api/dashboard", dashboardRouter);
+  app.use("/api/categories", categoriesRouter);
+  app.use("/api/accounts", accountsRouter);
+  app.use("/api/transactions", transactionsRouter);
+  app.use("/api/reports", reportsRouter);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

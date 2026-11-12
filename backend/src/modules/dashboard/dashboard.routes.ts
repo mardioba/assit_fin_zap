@@ -2,6 +2,7 @@ import { Router } from "express";
 import { prisma } from "../../lib/prisma.js";
 import { asyncHandler } from "../../lib/async-handler.js";
 import { requireAuth } from "../../middlewares/auth.middleware.js";
+import { parseMonth } from "../../lib/finance.js";
 import type { AuthedRequest } from "../../middlewares/error.middleware.js";
 
 export const dashboardRouter = Router();
@@ -9,56 +10,60 @@ export const dashboardRouter = Router();
 dashboardRouter.use(requireAuth);
 
 /**
- * Fase 1 — estrutura do dashboard financeiro.
- * Os totais são calculados sobre dados REAIS do banco; até a Fase 2
- * (receitas/despesas) os valores virão zerados — nunca fictícios.
- * Endpoints de movimentação chegam na Fase 2 sem quebrar este contrato.
+ * Resumo do dashboard — FASE 2.
+ * Todos os valores são somas REAIS do banco de dados do usuário autenticado.
+ * A IA (Fase 3) e o frontend consomem exatamente este contrato.
  */
 dashboardRouter.get(
   "/summary",
   asyncHandler(async (req, res) => {
-    const { sub } = (req as AuthedRequest).user!;
-    const now = new Date();
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    const userId = (req as AuthedRequest).user!.sub;
+    const { start, end, key } = parseMonth(
+      typeof req.query.month === "string" ? req.query.month : undefined,
+    );
 
-    // Fase 2 substituirá estas contagens por somas reais de
-    // receitas/despesas (em centavos). Por ora, contamos registros
-    // quando os módulos existirem; hoje respondemos com zeros reais.
-    const [user, transactionsCount] = await Promise.all([
-      prisma.user.findUnique({
-        where: { id: sub },
-        select: { name: true },
-      }),
-      // Tabela de movimentações existe a partir da Fase 2.
-      countTransactions(monthStart, monthEnd),
-    ]);
+    const [user, accounts, monthGrouped, allTimeGrouped, transactionsCount] =
+      await Promise.all([
+        prisma.user.findUnique({ where: { id: userId }, select: { name: true } }),
+        prisma.account.findMany({ where: { userId }, select: { initialBalanceCents: true } }),
+        prisma.transaction.groupBy({
+          by: ["type"],
+          where: { userId, date: { gte: start, lt: end } },
+          _sum: { amountCents: true },
+        }),
+        prisma.transaction.groupBy({
+          by: ["type"],
+          where: { userId },
+          _sum: { amountCents: true },
+        }),
+        prisma.transaction.count({ where: { userId, date: { gte: start, lt: end } } }),
+      ]);
+
+    const sumOf = (rows: typeof monthGrouped, type: string) =>
+      rows.find((r) => r.type === type)?._sum.amountCents ?? 0;
+
+    const incomeMonthCents = sumOf(monthGrouped, "INCOME");
+    const expenseMonthCents = sumOf(monthGrouped, "EXPENSE");
+
+    // Saldo total = somatório dos saldos iniciais + receitas - despesas (histórico).
+    // Transferências entre contas se anulam no total (só movem saldo entre contas).
+    const initialBalanceCents = accounts.reduce((s, a) => s + a.initialBalanceCents, 0);
+    const balanceCents =
+      initialBalanceCents + sumOf(allTimeGrouped, "INCOME") - sumOf(allTimeGrouped, "EXPENSE");
 
     res.json({
       user,
-      period: { start: monthStart.toISOString(), end: monthEnd.toISOString() },
+      period: { start: start.toISOString(), end: end.toISOString(), month: key },
       totals: {
-        balanceCents: 0,
-        incomeMonthCents: 0,
-        expenseMonthCents: 0,
-        resultMonthCents: 0,
+        balanceCents,
+        incomeMonthCents,
+        expenseMonthCents,
+        resultMonthCents: incomeMonthCents - expenseMonthCents,
       },
       transactionsCount,
+      // Contas a pagar/receber: implementação na Fase 4 (contrato mantido).
       pendingBillsPayable: 0,
       pendingBillsReceivable: 0,
-      note: "Totais reais de receitas/despesas disponíveis a partir da Fase 2.",
     });
   }),
 );
-
-// Conta movimentações apenas se a tabela existir (evita erro antes da Fase 2).
-async function countTransactions(_start: Date, _end: Date): Promise<number> {
-  try {
-    const result = await prisma.$queryRawUnsafe<{ c: number }[]>(
-      "SELECT COUNT(*) as c FROM \"Transaction\"",
-    );
-    return Number(result[0]?.c ?? 0);
-  } catch {
-    return 0;
-  }
-}

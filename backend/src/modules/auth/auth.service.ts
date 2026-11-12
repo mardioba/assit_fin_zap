@@ -3,6 +3,7 @@ import type { Request, Response } from "express";
 import { z } from "zod";
 import { env } from "../../config/env.js";
 import { conflict, unauthorized } from "../../lib/errors.js";
+import { DEFAULT_CATEGORIES } from "../../lib/finance.js";
 import type { AuthedRequest } from "../../middlewares/error.middleware.js";
 import { prisma } from "../../lib/prisma.js";
 import { audit } from "../audit/audit.service.js";
@@ -58,7 +59,15 @@ export async function register(req: Request, res: Response): Promise<void> {
 
   const passwordHash = await bcrypt.hash(data.password, 12);
   const user = await prisma.user.create({
-    data: { name: data.name, email: data.email, passwordHash },
+    data: {
+      name: data.name,
+      email: data.email,
+      passwordHash,
+      // Categorias padrão = configuração de uso (não são dados fictícios).
+      categories: {
+        create: DEFAULT_CATEGORIES.map((c) => ({ ...c, isDefault: true })),
+      },
+    },
     select: PUBLIC_USER,
   });
 
