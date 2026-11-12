@@ -41,3 +41,29 @@ export async function api<T>(path: string, options: Options = {}): Promise<T> {
 
   return data as T;
 }
+
+/**
+ * Baixa um arquivo autenticado (CSV/PDF) via cookies httpOnly.
+ * Retorna o nome sugerido pelo servidor (Content-Disposition).
+ */
+export async function downloadFile(path: string): Promise<void> {
+  const res = await fetch(`/api${path}`, { credentials: "include" });
+  if (!res.ok) {
+    if (res.status === 401) window.location.assign("/login");
+    const data = (await res.json().catch(() => ({}))) as { message?: string };
+    throw new ApiError(res.status, data.message ?? "Falha ao baixar arquivo");
+  }
+  const disposition = res.headers.get("content-disposition") ?? "";
+  const match = /filename="?([^";]+)"?/.exec(disposition);
+  const filename = match?.[1] ?? "arquivo";
+
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}

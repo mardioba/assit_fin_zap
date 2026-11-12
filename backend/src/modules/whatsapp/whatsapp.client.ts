@@ -60,3 +60,33 @@ export async function sendText(
 export function normalizePhone(phone: string): string {
   return phone.replace(/\D/g, "");
 }
+
+/**
+ * Baixa uma mídia do WhatsApp (áudio/foto) pela Graph API.
+ * Retorna os bytes e o MIME type. Exige credenciais configuradas.
+ */
+export async function downloadMedia(
+  mediaId: string,
+): Promise<{ buffer: Buffer; mime: string }> {
+  if (!isWhatsAppConfigured()) {
+    throw new Error("WhatsApp não configurado para baixar mídia");
+  }
+  const metaUrl = `https://graph.facebook.com/${env.whatsapp.apiVersion}/${mediaId}`;
+  const metaRes = await fetch(metaUrl, {
+    headers: { Authorization: `Bearer ${env.whatsapp.accessToken}` },
+  });
+  if (!metaRes.ok) {
+    throw new Error(`WhatsApp media metadata error: ${metaRes.status}`);
+  }
+  const meta = (await metaRes.json()) as { url?: string; mime_type?: string };
+  if (!meta.url) throw new Error("WhatsApp media sem URL");
+
+  const fileRes = await fetch(meta.url, {
+    headers: { Authorization: `Bearer ${env.whatsapp.accessToken}` },
+  });
+  if (!fileRes.ok) {
+    throw new Error(`WhatsApp media download error: ${fileRes.status}`);
+  }
+  const buffer = Buffer.from(await fileRes.arrayBuffer());
+  return { buffer, mime: meta.mime_type ?? "" };
+}

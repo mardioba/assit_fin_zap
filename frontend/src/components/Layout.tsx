@@ -24,6 +24,8 @@ export function Layout() {
                 { to: "/movimentacoes", label: "Movimentações" },
                 { to: "/categorias", label: "Categorias" },
                 { to: "/contas", label: "Contas" },
+                { to: "/cartoes", label: "Cartões" },
+                { to: "/contas-pagar", label: "A pagar/receber" },
                 { to: "/whatsapp", label: "WhatsApp" },
               ].map((item) => (
                 <NavLink

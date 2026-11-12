@@ -10,7 +10,13 @@ const PHONE_B = "5511999990002";
 
 function webhookPayload(
   from: string,
-  body: { type: string; text?: string },
+  body: {
+    type: string;
+    text?: string;
+    mediaId?: string;
+    mime?: string;
+    caption?: string;
+  },
   id = `wamid.${Math.random().toString(36).slice(2)}`,
 ): object {
   return {
@@ -26,6 +32,15 @@ function webhookPayload(
                   from,
                   type: body.type,
                   ...(body.text !== undefined ? { text: { body: body.text } } : {}),
+                  ...(body.mediaId !== undefined
+                    ? {
+                        [body.type]: {
+                          id: body.mediaId,
+                          ...(body.mime ? { mime_type: body.mime } : {}),
+                          ...(body.caption ? { caption: body.caption } : {}),
+                        },
+                      }
+                    : {}),
                 },
               ],
             },
@@ -277,19 +292,30 @@ describe("Consultas financeiras via WhatsApp (dados reais)", () => {
 });
 
 describe("Mídia e utilitários", () => {
-  it("áudio/foto respondem que a leitura chega na Fase 4", async () => {
+  it("áudio/foto sem credenciais respondem com instrução honesta", async () => {
     const session = await createSession();
     await linkPhone(session, PHONE_A);
 
     await request(app)
       .post("/api/whatsapp/webhook")
       .send(webhookPayload(PHONE_A, { type: "audio" }));
-    expect(lastReply()).toContain("Fase 4");
+    expect(lastReply()).toContain("credenciais");
+    expect(lastReply()).toContain("texto");
 
     await request(app)
       .post("/api/whatsapp/webhook")
       .send(webhookPayload(PHONE_A, { type: "image" }));
-    expect(lastReply()).toContain("comprovantes");
+    expect(lastReply()).toContain("comprovante");
+    expect(lastReply()).toContain("OPENAI_API_KEY");
+  });
+
+  it("vídeo/documento são recusados com instrução", async () => {
+    const session = await createSession();
+    await linkPhone(session, PHONE_A);
+    await request(app)
+      .post("/api/whatsapp/webhook")
+      .send(webhookPayload(PHONE_A, { type: "video" }));
+    expect(lastReply()).toContain("vídeo");
   });
 
   it("GET /api/whatsapp/status expõe config sem segredos", async () => {

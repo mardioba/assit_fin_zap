@@ -1,9 +1,9 @@
 # 💰 Assistente Financeiro Inteligente via WhatsApp
 
 Sistema de gestão financeira com interpretação por IA e integração ao WhatsApp.
-Este repositório está na **FASE 3 (WhatsApp + IA)** — relatórios em
+Este repositório está na **FASE 4 (Recursos avançados)** — relatórios em
 [docs/](docs/): [FASE1](docs/FASE1-RELATORIO.md), [FASE2](docs/FASE2-RELATORIO.md),
-[FASE3](docs/FASE3-RELATORIO.md).
+[FASE3](docs/FASE3-RELATORIO.md), [FASE4](docs/FASE4-RELATORIO.md).
 
 ## Stack
 
@@ -58,7 +58,7 @@ Acesse `http://localhost:5173`, crie uma conta e verá o dashboard.
 ### 3. Testes
 
 ```bash
-cd backend && npm test           # 95 testes (auth, financeiro, IA, WhatsApp, segurança)
+cd backend && npm test           # 150 testes (auth, financeiro, WhatsApp, mídia, cartões, export)
 npm run typecheck                # TypeScript strict
 ```
 
@@ -91,16 +91,19 @@ tokens diretamente no código — apenas em `.env` (ignorado pelo Git).
    `https://SEU_DOMINIO/api/whatsapp/webhook`.
 3. **IA:** defina `OPENAI_API_KEY` ou `GEMINI_API_KEY` (com `AI_PROVIDER=auto`).
    Sem chaves, o interpretador local é usado automaticamente.
+4. **Áudio e comprovantes (Fase 4):** usam a **mesma chave** de IA + `WHATSAPP_*`
+   (para a Graph API baixar a mídia). Sem isso, o bot responde pedindo dados em
+   texto.
 
 ## Roadmap
 
 - ✅ **Fase 1** — Fundação: estrutura, Docker, banco, auth JWT, dashboard
 - ✅ **Fase 2** — Receitas, despesas, categorias, contas, histórico, consultas
 - ✅ **Fase 3** — WhatsApp Cloud API + interpretação com IA
-- ⬜ **Fase 4** — Áudio, comprovantes, cartões, recorrências, relatórios
+- ✅ **Fase 4** — Áudio, comprovantes, cartões, recorrências, contas, exportação
 - ⬜ **Fase 5** — Testes de segurança, tratamento de erros, VPS
 
-## Endpoints principais (Fase 2)
+## Endpoints principais
 
 | Método | Rota | Descrição |
 | --- | --- | --- |
@@ -111,13 +114,20 @@ tokens diretamente no código — apenas em `.env` (ignorado pelo Git).
 | GET/POST | `/api/accounts` | Contas (BANK/CASH/WALLET) com saldo real |
 | POST | `/api/accounts/transfer` | Transferência entre contas |
 | GET/POST | `/api/transactions` | Movimentações com filtros e paginação |
-| GET | `/api/reports/summary` `/by-category` `/monthly` | Consultas e gráficos |
-| GET/POST | `/api/whatsapp/webhook` | Verificação Meta + recepção (HMAC, anti-duplicidade) |
+| GET | `/api/reports/summary` `/by-category` `/monthly` `/annual` | Consultas e gráficos |
+| GET | `/api/reports/export?month=&format=csv\|pdf` | Exportação Excel (CSV+BOM) e PDF |
+| GET/POST | `/api/whatsapp/webhook` | Verificação Meta + recepção (HMAC, anti-duplicidade, áudio/foto) |
 | POST | `/api/whatsapp/send` `/test-interpret` | Envio pelo painel e teste do interpretador |
 | GET | `/api/whatsapp/status` | Status da integração (sem expor segredos) |
 | PATCH | `/api/users/me` | Perfil + `whatsappPhone` (vínculo do número) |
+| GET/POST | `/api/cards` `/:id/invoice` | Cartões, fatura por ciclo e limite disponível |
+| GET/POST | `/api/recurring` `/run` | Contas recorrentes (materialização idempotente) |
+| GET/POST | `/api/bills` `/:id/pay` `/run-reminders` | Contas a pagar/receber + lembretes WhatsApp |
 
 ## Documentação
 
-- [Decisões técnicas](docs/DECISOES-TECNICAS.md)
+- [Decisões técnicas](docs/DECISOES-TECNICAS.md) (D-001 → D-025)
 - [Relatório da Fase 1](docs/FASE1-RELATORIO.md)
+- [Relatório da Fase 2](docs/FASE2-RELATORIO.md)
+- [Relatório da Fase 3](docs/FASE3-RELATORIO.md)
+- [Relatório da Fase 4](docs/FASE4-RELATORIO.md)

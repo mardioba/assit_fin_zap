@@ -6,6 +6,7 @@ import { badRequest } from "../../lib/errors.js";
 import { requireAuth } from "../../middlewares/auth.middleware.js";
 import { resolveProvider } from "../ai/ai.js";
 import { isWhatsAppConfigured, normalizePhone, outbox, sendText } from "./whatsapp.client.js";
+import { resolveMediaProvider } from "../ai/media.js";
 import {
   handleWebhookPayload,
   verifySignature,
@@ -71,6 +72,7 @@ whatsappRouter.get("/status", requireAuth, (_req, res) => {
     verifyTokenSet: Boolean(env.whatsapp.verifyToken),
     appSecretSet: Boolean(env.whatsapp.appSecret),
     aiProvider: resolveProvider(),
+    mediaProvider: resolveMediaProvider(),
     queuedOutbox: outbox.length,
   });
 });

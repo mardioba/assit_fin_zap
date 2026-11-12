@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { api, ApiError } from "../lib/api";
+import { api, ApiError, downloadFile } from "../lib/api";
 import {
   centsToInput,
   formatDate,
@@ -19,6 +19,8 @@ const EMPTY_FORM = {
   accountId: "",
   paymentMethod: "",
   establishment: "",
+  installments: "",
+  cardId: "",
 };
 
 export function TransactionsPage() {
@@ -27,6 +29,7 @@ export function TransactionsPage() {
   const [total, setTotal] = useState(0);
   const [categories, setCategories] = useState<Category[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
+  const [cards, setCards] = useState<{ id: string; name: string }[]>([]);
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
   const [form, setForm] = useState(EMPTY_FORM);
@@ -41,15 +44,17 @@ export function TransactionsPage() {
       const params = new URLSearchParams({ month, pageSize: "50" });
       if (typeFilter) params.set("type", typeFilter);
       if (search) params.set("search", search);
-      const [list, cats, accs] = await Promise.all([
+      const [list, cats, accs, cardRes] = await Promise.all([
         api<{ items: Transaction[]; total: number }>(`/transactions?${params}`),
         api<{ categories: Category[] }>("/categories"),
         api<{ accounts: Account[] }>("/accounts"),
+        api<{ cards: { id: string; name: string }[] }>("/cards"),
       ]);
       setItems(list.items);
       setTotal(list.total);
       setCategories(cats.categories);
       setAccounts(accs.accounts);
+      setCards(cardRes.cards);
       setError(null);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Falha ao carregar");
@@ -74,6 +79,8 @@ export function TransactionsPage() {
       accountId: t.accountId ?? "",
       paymentMethod: t.paymentMethod ?? "",
       establishment: t.establishment ?? "",
+      installments: "",
+      cardId: (t as { cardId?: string | null }).cardId ?? "",
     });
     setShowForm(true);
     setError(null);
@@ -97,8 +104,12 @@ export function TransactionsPage() {
         date: new Date(`${form.date}T12:00:00`).toISOString(),
         categoryId: form.categoryId || null,
         accountId: form.accountId || null,
+        cardId: form.cardId || null,
         paymentMethod: form.paymentMethod || null,
         establishment: form.establishment || null,
+        ...(form.installments && Number(form.installments) > 1
+          ? { installments: Number(form.installments) }
+          : {}),
       };
       if (editingId) {
         await api(`/transactions/${editingId}`, { method: "PATCH", body: payload });
@@ -248,6 +259,35 @@ export function TransactionsPage() {
                 className="w-full rounded-md border border-slate-300 px-3 py-2"
               />
             </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-700">Cartão</label>
+              <select
+                value={form.cardId}
+                onChange={(e) => setForm({ ...form, cardId: e.target.value })}
+                className="w-full rounded-md border border-slate-300 px-3 py-2"
+              >
+                <option value="">— Sem cartão —</option>
+                {cards.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-700">
+                Parcelas (2 a 60)
+              </label>
+              <input
+                type="number"
+                min={2}
+                max={60}
+                placeholder="à vista"
+                value={form.installments}
+                onChange={(e) => setForm({ ...form, installments: e.target.value })}
+                className="w-full rounded-md border border-slate-300 px-3 py-2"
+              />
+            </div>
             <div className="flex items-end">
               <button
                 type="submit"
@@ -290,6 +330,34 @@ export function TransactionsPage() {
         >
           Atualizar
         </button>
+        <div className="ml-auto flex gap-2">
+          <button
+            onClick={async () => {
+              try {
+                await downloadFile(`/reports/export?month=${month}&format=csv`);
+              } catch (err) {
+                setError(err instanceof ApiError ? err.message : "Falha ao exportar");
+              }
+            }}
+            className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-600 hover:bg-slate-100"
+            title="Exporta o mês em CSV (abre no Excel)"
+          >
+            ⬇ CSV (Excel)
+          </button>
+          <button
+            onClick={async () => {
+              try {
+                await downloadFile(`/reports/export?month=${month}&format=pdf`);
+              } catch (err) {
+                setError(err instanceof ApiError ? err.message : "Falha ao exportar");
+              }
+            }}
+            className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-600 hover:bg-slate-100"
+            title="Exporta o mês em PDF"
+          >
+            ⬇ PDF
+          </button>
+        </div>
       </div>
 
       <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">

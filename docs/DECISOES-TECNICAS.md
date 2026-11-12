@@ -184,3 +184,65 @@ caso contrário, empilha em um `outbox` em memória. Permite exercitar o fluxo
 completo (webhook → IA → banco → resposta) em dev/testes **sem violar a regra
 de usar a API oficial**: em produção a API é obrigatória (o status no painel
 indica "Modo local" vs "Configurada").
+
+## D-020 — Ciclo de fatura calculado, não armazenado
+
+**Data:** Fase 4 | **Status:** aceito
+
+`invoicePeriod(closingDay, dueDay, ref)` deriva o ciclo atual a partir do dia de
+fechamento: cap de dias em meses curtos (fechamento 31 → 28/02 em fevereiro) e
+vencimento = primeiro `dueDay` em ou após o fim do ciclo (fecha 25/01, vence
+10/02). Nada de datas pré-calculadas no banco: mudar o fechamento do cartão
+recalcula tudo retroativamente.
+
+## D-021 — Parcelamento como grupo de movimentações
+
+**Data:** Fase 4 | **Status:** aceito
+
+Parcelar cria N `Transaction` reais com `installmentGroup` (UUID) +
+`installmentNumber/Total`, datas mensais e a última parcela ajustada para o
+total fechar exato. Vantagens: relatórios/saldos/faturas funcionam **sem
+lógica especial** (cada parcela é uma movimentação comum), edição/exclusão
+individual possível. A alternativa (1 linha com campo de parcelas) exigiria
+considerar parcelas futuras em todo cálculo — rejeitada.
+
+## D-022 — Recorrência com dedupe por chave única
+
+**Data:** Fase 4 | **Status:** aceito
+
+`recurrenceKey = "ruleId:YYYY-MM"` com `@unique` torna a materialização
+**idempotente** mesmo com corrida (agendador + botão manual): o segundo
+criador recebe `P2002` e ignora. Status nunca é gravado — só existe a
+movimentação criada ou não. Agendador interno (setInterval no server.ts)
+com `unref()`; na Fase 5, avaliar worker separado para múltiplas instâncias.
+
+## D-023 — Status de conta derivado (OPEN/OVERDUE/PAID)
+
+**Data:** Fase 4 | **Status:** aceito
+
+`billStatus()` é calculado a cada leitura: `paidAt` → PAID/RECEIVED; vencido →
+OVERDUE; senão OPEN. **Nunca há campo de status no banco** — impossível
+dessincronizar (ex.: vencer sem ninguém marcar). Lembretes usam `remindedAt`
+como marca anti-spam de envio único; mudar o vencimento zera a marca.
+
+## D-024 — Mídia (áudio/comprovante) no mesmo contrato da IA
+
+**Data:** Fase 4 | **Status:** aceito
+
+Transcrição (Whisper/Gemini) e leitura de comprovante (vision) produzem o
+**mesmo JSON** `interpretationSchema` da IA de texto, validado por Zod, e o
+resultado entra na **mesma máquina de estados** (confirm/fill) do fluxo de
+texto — inclusive o comprovante completo exige "sim" antes de gravar (item 3).
+Provedores usam as mesmas chaves (`OPENAI_API_KEY`/`GEMINI_API_KEY`); sem
+chave/credencial a resposta é honesta pedindo texto (nunca inventa dados).
+Download da mídia via Graph API oficial com `WHATSAPP_*`.
+
+## D-025 — Exportação CSV (BOM) + PDF (pdfkit)
+
+**Data:** Fase 4 | **Status:** aceito
+
+CSV com **BOM UTF-8**, separador `;` e valores com vírgula decimal abre
+correto no Excel pt-BR sem configuração; campos com `;`/aspas são escapados.
+PDF gerado por `pdfkit` (A4, resumo + lista colorida) — sem serviço externo,
+tudo no processo da API. Download autenticado via cookies httpOnly
+(`downloadFile`), nunca URL pública com token.

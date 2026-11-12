@@ -14,6 +14,9 @@ import { accountsRouter } from "./modules/accounts/accounts.routes.js";
 import { transactionsRouter } from "./modules/transactions/transactions.routes.js";
 import { reportsRouter } from "./modules/reports/reports.routes.js";
 import { whatsappRouter } from "./modules/whatsapp/whatsapp.routes.js";
+import { cardsRouter } from "./modules/cards/cards.routes.js";
+import { recurringRouter } from "./modules/recurring/recurring.routes.js";
+import { billsRouter } from "./modules/bills/bills.routes.js";
 
 export function createApp(): express.Express {
   const app = express();
@@ -51,6 +54,9 @@ export function createApp(): express.Express {
   app.use("/api/transactions", transactionsRouter);
   app.use("/api/reports", reportsRouter);
   app.use("/api/whatsapp", whatsappRouter);
+  app.use("/api/cards", cardsRouter);
+  app.use("/api/recurring", recurringRouter);
+  app.use("/api/bills", billsRouter);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

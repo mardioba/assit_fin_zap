@@ -22,7 +22,7 @@ dashboardRouter.get(
       typeof req.query.month === "string" ? req.query.month : undefined,
     );
 
-    const [user, accounts, monthGrouped, allTimeGrouped, transactionsCount] =
+    const [user, accounts, monthGrouped, allTimeGrouped, transactionsCount, billsGrouped] =
       await Promise.all([
         prisma.user.findUnique({ where: { id: userId }, select: { name: true } }),
         prisma.account.findMany({ where: { userId }, select: { initialBalanceCents: true } }),
@@ -37,6 +37,11 @@ dashboardRouter.get(
           _sum: { amountCents: true },
         }),
         prisma.transaction.count({ where: { userId, date: { gte: start, lt: end } } }),
+        prisma.bill.groupBy({
+          by: ["type"],
+          where: { userId, paidAt: null },
+          _count: true,
+        }),
       ]);
 
     const sumOf = (rows: typeof monthGrouped, type: string) =>
@@ -61,9 +66,11 @@ dashboardRouter.get(
         resultMonthCents: incomeMonthCents - expenseMonthCents,
       },
       transactionsCount,
-      // Contas a pagar/receber: implementação na Fase 4 (contrato mantido).
-      pendingBillsPayable: 0,
-      pendingBillsReceivable: 0,
+      // Contas a pagar/receiber em aberto (inclui atrasadas) — Fase 4.
+      pendingBillsPayable:
+        billsGrouped.find((g) => g.type === "PAYABLE")?._count ?? 0,
+      pendingBillsReceivable:
+        billsGrouped.find((g) => g.type === "RECEIVABLE")?._count ?? 0,
     });
   }),
 );

@@ -36,6 +36,9 @@ model User {
   transactions Transaction[]
   transfers    Transfer[]
   conversationState ConversationState?
+  creditCards  CreditCard[]
+  bills        Bill[]
+  recurringRules RecurringRule[]
 }
 
 // Refresh tokens armazenados como HASH (nunca o valor em claro) para que
@@ -125,11 +128,84 @@ model Transaction {
   // paymentMethod: "PIX" | "CASH" | "CREDIT" | "DEBIT" | "TRANSFER" | "OTHER"
   paymentMethod String?
   establishment String?
+  // --- Cartão de crédito e parcelamento (Fase 4) ---
+  cardId           String?
+  card             CreditCard? @relation(fields: [cardId], references: [id], onDelete: SetNull)
+  installmentGroup String?
+  installmentNumber Int?
+  installmentTotal  Int?
+  // --- Recorrência (Fase 4): dedupe materialização "ruleId:YYYY-MM" ---
+  recurrenceKey String?  @unique
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
   @@index([userId, date])
   @@index([userId, type, date])
+  @@index([userId, cardId, date])
+}
+
+// Cartões de crédito (Fase 4): limites, fechamento e vencimento.
+model CreditCard {
+  id          String        @id @default(cuid())
+  userId      String
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String
+  brand       String?
+  limitCents  Int
+  // dias de fechamento e vencimento (1-28)
+  closingDay  Int
+  dueDay      Int
+  isActive    Boolean       @default(true)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  transactions Transaction[]
+
+  @@index([userId])
+}
+
+// Contas a pagar / a receber com vencimento (Fase 4).
+model Bill {
+  id           String    @id @default(cuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // type: "PAYABLE" (a pagar) | "RECEIVABLE" (a receber)
+  type         String
+  description  String
+  amountCents  Int
+  dueDate      DateTime
+  categoryId   String?
+  accountId    String?
+  // paidAt preenchido = PAGO/RECEBIDO; sem paidAt = ABERTO (ou ATRASADO)
+  paidAt       DateTime?
+  // último aviso enviado (lembrete WhatsApp — anti-spam)
+  remindedAt   DateTime?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@index([userId, dueDate])
+}
+
+// Regras de recorrência mensal (Fase 4): materializam movimentações.
+model RecurringRule {
+  id             String    @id @default(cuid())
+  userId         String
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // type: "INCOME" | "EXPENSE"
+  type           String
+  amountCents    Int
+  description    String
+  categoryId      String?
+  accountId      String?
+  cardId         String?
+  paymentMethod  String?
+  // dia do mês (1-28)
+  dayOfMonth     Int
+  establishment  String?
+  active         Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([userId, active])
 }
 
 // Transferências entre contas (afetam saldos, NÃO entram em receitas/despesas).

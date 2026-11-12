@@ -6,8 +6,14 @@ import { isUniqueViolation } from "../../lib/prisma-errors.js";
 import { interpretMessage } from "../ai/ai.js";
 import { resolveProvider } from "../ai/ai.js";
 import type { Interpretation } from "../ai/ai.schema.js";
+import { extractReceipt, resolveMediaProvider, transcribeAudio } from "../ai/media.js";
 import { audit } from "../audit/audit.service.js";
-import { normalizePhone, sendText } from "./whatsapp.client.js";
+import {
+  downloadMedia,
+  isWhatsAppConfigured,
+  normalizePhone,
+  sendText,
+} from "./whatsapp.client.js";
 
 // ---------- Verificação e assinatura do webhook (Meta) ----------
 
@@ -43,6 +49,11 @@ export type IncomingMessage = {
   from: string;
   type: string;
   text?: string;
+  /** ID da mídia no servidor da Meta (áudio/foto) — Fase 4. */
+  mediaId?: string;
+  mime?: string;
+  /** Legenda da imagem (quando presente). */
+  caption?: string;
 };
 
 export function parseWebhookPayload(payload: unknown): IncomingMessage[] {
@@ -66,11 +77,21 @@ export function parseWebhookPayload(payload: unknown): IncomingMessage[] {
         const type = typeof m.type === "string" ? m.type : "";
         if (!id || !from) continue;
         let text: string | undefined;
+        let mediaId: string | undefined;
+        let mime: string | undefined;
+        let caption: string | undefined;
         if (type === "text") {
           const t = m.text as Record<string, unknown> | undefined;
           text = typeof t?.body === "string" ? t.body : undefined;
+        } else if (type === "audio" || type === "image" || type === "video" || type === "document") {
+          const media = m[type] as Record<string, unknown> | undefined;
+          if (media) {
+            if (typeof media.id === "string") mediaId = media.id;
+            if (typeof media.mime_type === "string") mime = media.mime_type;
+            if (typeof media.caption === "string") caption = media.caption;
+          }
         }
-        messages.push({ id, from, type, text });
+        messages.push({ id, from, type, text, mediaId, mime, caption });
       }
     }
   }
@@ -579,20 +600,107 @@ export async function processIncomingMessage(
     data: { userId: user.id },
   });
 
+  if (msg.type === "audio") {
+    return handleAudio(user, msg);
+  }
+
+  if (msg.type === "image") {
+    return handleImage(user, msg);
+  }
+
   if (msg.type !== "text" || !msg.text) {
-    // Áudio e imagens são tratados na Fase 4.
     const kind =
-      msg.type === "audio" ? "áudio" : msg.type === "image" ? "foto" : "mídia";
+      msg.type === "video" ? "vídeo" : msg.type === "document" ? "documento" : "mídia";
     await sendText(
       normalizePhone(user.whatsappPhone ?? ""),
-      `Recebi seu ${kind}. 📎 A leitura automática de áudio e comprovantes chega na Fase 4 — ` +
-        `por enquanto, envie os dados em texto: "Gastei 35 reais de combustível".`,
+      `Recebi seu ${kind}, mas não processamos esse tipo. 📎 Envie áudio, foto de ` +
+        `comprovante ou os dados em texto: "Gastei 35 reais de combustível".`,
     );
     return { status: "unsupported_media" };
   }
 
   await processTextForUser(user, msg.text);
   return { status: "processed" };
+}
+
+/** Resposta honesta quando não há provedor de mídia/credenciais configurados. */
+async function replyMediaUnavailable(
+  user: User,
+  kind: "áudio" | "comprovante",
+): Promise<{ status: string }> {
+  await sendText(
+    normalizePhone(user.whatsappPhone ?? ""),
+    `Recebi seu ${kind}. 📎 A leitura automática precisa de credenciais no ` +
+      `servidor (WhatsApp + OPENAI_API_KEY ou GEMINI_API_KEY). Enquanto isso, ` +
+      `envie os dados em texto: "Gastei 35 reais de combustível".`,
+  );
+  return { status: "media_unavailable" };
+}
+
+/** Áudio → transcrição → mesmo fluxo de texto (interpretação/consulta). */
+async function handleAudio(user: User, msg: IncomingMessage): Promise<{ status: string }> {
+  if (!msg.mediaId || resolveMediaProvider() === "none" || !isWhatsAppConfigured()) {
+    return replyMediaUnavailable(user, "áudio");
+  }
+  try {
+    const { buffer, mime } = await downloadMedia(msg.mediaId);
+    const transcript = (await transcribeAudio(buffer, mime)).trim();
+    if (!transcript) {
+      await sendText(
+        normalizePhone(user.whatsappPhone ?? ""),
+        "Não consegui transcrever o áudio. 🎤 Tente falar mais perto do celular ou envie em texto.",
+      );
+      return { status: "audio_empty" };
+    }
+    await processTextForUser(user, transcript);
+    return { status: "processed" };
+  } catch (err) {
+    console.error("[whatsapp] falha ao processar áudio:", err);
+    await sendText(
+      normalizePhone(user.whatsappPhone ?? ""),
+      "Desculpe, não consegui processar seu áudio agora. Envie os dados em texto.",
+    );
+    return { status: "audio_error" };
+  }
+}
+
+/**
+ * Foto de comprovante → leitura (OCR/visão) → mesma máquina de estados do
+ * texto: se vier completa, pede confirmação (item 3); se faltar valor, pede.
+ * Nunca grava sem passar por confirmação.
+ */
+async function handleImage(user: User, msg: IncomingMessage): Promise<{ status: string }> {
+  if (!msg.mediaId || resolveMediaProvider() === "none" || !isWhatsAppConfigured()) {
+    return replyMediaUnavailable(user, "comprovante");
+  }
+  try {
+    const { buffer, mime } = await downloadMedia(msg.mediaId);
+    const interp = await extractReceipt(
+      buffer,
+      mime,
+      new Date().toISOString().slice(0, 10),
+    );
+
+    if (interp.intent !== "create_transaction" || !interp.transaction?.type) {
+      await sendText(
+        normalizePhone(user.whatsappPhone ?? ""),
+        "Li a foto, mas não consegui identificar uma movimentação. 🧾 Envie os dados em texto: " +
+          '"Gastei 35 reais de combustível".',
+      );
+      return { status: "image_unreadable" };
+    }
+
+    // Força o fluxo de confirmação/complemento — idêntico ao texto ambíguo.
+    await handleInterpretation(user, { ...interp, ambiguous: true });
+    return { status: "processed" };
+  } catch (err) {
+    console.error("[whatsapp] falha ao ler comprovante:", err);
+    await sendText(
+      normalizePhone(user.whatsappPhone ?? ""),
+      "Desculpe, não consegui ler o comprovante agora. Envie os dados em texto.",
+    );
+    return { status: "image_error" };
+  }
 }
 
 /** Processa o payload completo do webhook. */
