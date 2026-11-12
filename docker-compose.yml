@@ -34,6 +34,17 @@ services:
       JWT_REFRESH_TTL_DAYS: ${JWT_REFRESH_TTL_DAYS:-7}
       COOKIE_SECURE: ${COOKIE_SECURE:-true}
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:8080}
+      RATE_LIMIT_GLOBAL: ${RATE_LIMIT_GLOBAL:-300}
+      RATE_LIMIT_AUTH: ${RATE_LIMIT_AUTH:-30}
+      # WhatsApp Business Cloud API (Meta) — obrigatório em produção
+      WHATSAPP_PHONE_NUMBER_ID: ${WHATSAPP_PHONE_NUMBER_ID:-}
+      WHATSAPP_ACCESS_TOKEN: ${WHATSAPP_ACCESS_TOKEN:-}
+      WHATSAPP_VERIFY_TOKEN: ${WHATSAPP_VERIFY_TOKEN:-}
+      WHATSAPP_APP_SECRET: ${WHATSAPP_APP_SECRET:-}
+      # IA (interpretação + áudio + comprovantes)
+      AI_PROVIDER: ${AI_PROVIDER:-auto}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
     ports:
       - "4000:4000"
 

@@ -95,7 +95,7 @@ describe("POST /api/auth/login", () => {
 });
 
 describe("POST /api/auth/refresh e /logout", () => {
-  it("rotaciona o refresh token (token usado é revogado)", async () => {
+  it("rotaciona o refresh token e revoga a família em caso de reuso", async () => {
     const reg = await registerUser();
     const refreshCookie = findCookie(reg, "refreshToken");
 
@@ -104,18 +104,20 @@ describe("POST /api/auth/refresh e /logout", () => {
       .set("Cookie", refreshCookie);
     expect(refresh1.status).toBe(200);
 
-    // Reuso do token antigo deve falhar (rotação).
+    // Reuso do token antigo falha (rotação)…
     const reuse = await request(app)
       .post("/api/auth/refresh")
       .set("Cookie", refreshCookie);
     expect(reuse.status).toBe(401);
+    expect(reuse.body.code).toBe("REFRESH_REUSED");
 
-    // Novo token funciona.
+    // …e indica roubo: TODA a família é revogada, inclusive o token novo.
     const newRefresh = findCookie(refresh1, "refreshToken");
     const refresh2 = await request(app)
       .post("/api/auth/refresh")
       .set("Cookie", newRefresh);
-    expect(refresh2.status).toBe(200);
+    expect(refresh2.status).toBe(401);
+    expect(refresh2.body.code).toBe("REFRESH_REUSED");
   });
 
   it("logout revoga o refresh token", async () => {

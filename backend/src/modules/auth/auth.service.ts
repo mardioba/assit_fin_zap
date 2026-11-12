@@ -105,13 +105,18 @@ export async function refresh(req: Request, res: Response): Promise<void> {
     include: { user: true },
   });
 
-  if (
-    !stored ||
-    stored.revokedAt ||
-    stored.expiresAt < new Date() ||
-    !stored.user.isActive
-  ) {
+  if (!stored || stored.expiresAt < new Date() || !stored.user.isActive) {
     throw unauthorized("Sessão inválida", "INVALID_REFRESH_TOKEN");
+  }
+
+  // Reuso de token já revogado = possível roubo → revoga TODA a família
+  // (todos os refresh tokens do usuário) e derruba as sessões.
+  if (stored.revokedAt) {
+    await prisma.refreshToken.updateMany({
+      where: { userId: stored.userId, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+    throw unauthorized("Sessão inválida", "REFRESH_REUSED");
   }
 
   // Revoga o token atual e emite novos (rotação).

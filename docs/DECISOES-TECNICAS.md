@@ -246,3 +246,43 @@ correto no Excel pt-BR sem configuração; campos com `;`/aspas são escapados.
 PDF gerado por `pdfkit` (A4, resumo + lista colorida) — sem serviço externo,
 tudo no processo da API. Download autenticado via cookies httpOnly
 (`downloadFile`), nunca URL pública com token.
+
+## D-026 — Detecção de reuso de refresh token
+
+**Data:** Fase 5 | **Status:** aceito
+
+Ao receber um refresh token **já revogado**, o servidor assume roubo de token
+(não apenas expiração) e revoga **toda a família** — todos os refresh tokens
+ativos do usuário — respondendo `REFRESH_REUSED`. Custo: o usuário perde a
+sessão e precisa logar de novo. Benefício: um token vazado não permite
+manter sessão indefinidamente nem detectar silenciosamente o abuso.
+
+## D-027 — Rate limiting em duas camadas
+
+**Data:** Fase 5 | **Status:** aceito
+
+- Global (`RATE_LIMIT_GLOBAL`, 300/15min/IP) — abuso geral;
+- **Autenticação** (`RATE_LIMIT_AUTH`, 30/15min/IP) — brute force de senha,
+  aplicado só em `/api/auth`.
+Configurável por ambiente (testes criam instâncias com limites pequenos para
+validar o 429). Resposta JSON com `code: RATE_LIMITED` (coerente com o resto
+da API). Cabeçalhos `RateLimit-*` (draft standardHeaders) para observabilidade.
+
+## D-028 — Erros de parsing e do Prisma com status corretos
+
+**Data:** Fase 5 | **Status:** aceito
+
+O middleware global mapeia: JSON malformado → 400 `INVALID_JSON`; corpo acima
+de 1MB → 413; códigos Prisma `P2002` → 409, `P2025` → 404, `P2003` → 400
+(mensagem de FK legível). Antes, tudo isso virava 500 "erro interno". Detalhes
+técnicos do erro só aparecem em `NODE_ENV=test` — produção nunca vaza stack.
+
+## D-029 — Testes de segurança como suíte dedicada
+
+**Data:** Fase 5 | **Status:** aceito
+
+`tests/security.test.ts` (21 testes) cobre as frentes do item 8 e boas práticas
+OWASP do projeto: força bruta, JWT forjado/expirado, isolamento multi-tenant
+(varredura de 14 endpoints), injeção, mass assignment, headers, CORS, webhook
+HMAC, vazamento de dados e anti-enumeration. A suíte roda em CI com as demais
+(171 no total) — regressões de segurança falham o build.

@@ -29,8 +29,12 @@ export const env = {
     .map((o) => o.trim())
     .filter(Boolean),
   cookieSecure: process.env.COOKIE_SECURE === "true",
-  whatsapp: {
-    phoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID ?? "",
+  // Limites de requisição (anti brute-force/abuso).
+  rateLimit: {
+    global: Number(process.env.RATE_LIMIT_GLOBAL ?? 300),
+    auth: Number(process.env.RATE_LIMIT_AUTH ?? 30),
+  },
+  whatsapp: {    phoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID ?? "",
     accessToken: process.env.WHATSAPP_ACCESS_TOKEN ?? "",
     verifyToken: process.env.WHATSAPP_VERIFY_TOKEN ?? "",
     appSecret: process.env.WHATSAPP_APP_SECRET ?? "",

@@ -1,9 +1,10 @@
 # 💰 Assistente Financeiro Inteligente via WhatsApp
 
 Sistema de gestão financeira com interpretação por IA e integração ao WhatsApp.
-Este repositório está na **FASE 4 (Recursos avançados)** — relatórios em
+Este repositório está na **FASE 5 (concluída)** — relatórios em
 [docs/](docs/): [FASE1](docs/FASE1-RELATORIO.md), [FASE2](docs/FASE2-RELATORIO.md),
-[FASE3](docs/FASE3-RELATORIO.md), [FASE4](docs/FASE4-RELATORIO.md).
+[FASE3](docs/FASE3-RELATORIO.md), [FASE4](docs/FASE4-RELATORIO.md),
+[FASE5](docs/FASE5-RELATORIO.md).
 
 ## Stack
 
@@ -58,7 +59,7 @@ Acesse `http://localhost:5173`, crie uma conta e verá o dashboard.
 ### 3. Testes
 
 ```bash
-cd backend && npm test           # 150 testes (auth, financeiro, WhatsApp, mídia, cartões, export)
+cd backend && npm test           # 171 testes (inclui 21 de segurança)
 npm run typecheck                # TypeScript strict
 ```
 
@@ -101,7 +102,7 @@ tokens diretamente no código — apenas em `.env` (ignorado pelo Git).
 - ✅ **Fase 2** — Receitas, despesas, categorias, contas, histórico, consultas
 - ✅ **Fase 3** — WhatsApp Cloud API + interpretação com IA
 - ✅ **Fase 4** — Áudio, comprovantes, cartões, recorrências, contas, exportação
-- ⬜ **Fase 5** — Testes de segurança, tratamento de erros, VPS
+- ✅ **Fase 5** — Testes de segurança, tratamento de erros, VPS
 
 ## Endpoints principais
 
@@ -126,8 +127,10 @@ tokens diretamente no código — apenas em `.env` (ignorado pelo Git).
 
 ## Documentação
 
-- [Decisões técnicas](docs/DECISOES-TECNICAS.md) (D-001 → D-025)
+- [Decisões técnicas](docs/DECISOES-TECNICAS.md) (D-001 → D-029)
 - [Relatório da Fase 1](docs/FASE1-RELATORIO.md)
 - [Relatório da Fase 2](docs/FASE2-RELATORIO.md)
 - [Relatório da Fase 3](docs/FASE3-RELATORIO.md)
 - [Relatório da Fase 4](docs/FASE4-RELATORIO.md)
+- [Relatório da Fase 5](docs/FASE5-RELATORIO.md)
+- [Guia de deploy em VPS](docs/DEPLOY-VPS.md)

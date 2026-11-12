@@ -18,7 +18,12 @@ import { cardsRouter } from "./modules/cards/cards.routes.js";
 import { recurringRouter } from "./modules/recurring/recurring.routes.js";
 import { billsRouter } from "./modules/bills/bills.routes.js";
 
-export function createApp(): express.Express {
+export type AppOptions = {
+  /** Limites de requisição (usado pelos testes para simular 429). */
+  limits?: { global?: number; auth?: number };
+};
+
+export function createApp(options: AppOptions = {}): express.Express {
   const app = express();
 
   app.set("trust proxy", 1);
@@ -39,11 +44,21 @@ export function createApp(): express.Express {
   app.use(
     rateLimit({
       windowMs: 15 * 60 * 1000,
-      limit: 300,
+      limit: options.limits?.global ?? env.rateLimit.global,
       standardHeaders: true,
       legacyHeaders: false,
     }),
   );
+
+  // Limite agressivo para autenticação (força bruta) — por IP.
+  const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: options.limits?.auth ?? env.rateLimit.auth,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { message: "Muitas tentativas. Tente novamente em alguns minutos.", code: "RATE_LIMITED" },
+  });
+  app.use("/api/auth", authLimiter);
 
   app.use("/api/health", healthRouter);
   app.use("/api/auth", authRouter);
