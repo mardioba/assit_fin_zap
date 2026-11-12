@@ -1,0 +1,29 @@
+# Dependências
+node_modules/
+
+# Builds
+dist/
+*.tsbuildinfo
+
+# Banco de dados local (NUNCA versionar)
+backend/*.db
+backend/prisma/*.db
+*.db
+*.db-journal
+
+# Credenciais — jamais versionar
+.env
+.env.local
+.env.*.local
+
+# Logs e SO
+*.log
+npm-debug.log*
+.DS_Store
+
+# Testes / cobertura
+coverage/
+
+# Editores
+.idea/
+.vscode/

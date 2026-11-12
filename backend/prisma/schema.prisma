@@ -1,0 +1,65 @@
+// Schema Prisma — Fase 1 (Fundação)
+//
+// DECISÃO TÉCNICA: o schema é 100% compatível com SQLite (dev/teste local,
+// ambiente sem Docker) e PostgreSQL (produção). Por isso:
+//   - NÃO usamos enums (SQLite não suporta) -> campos String documentados;
+//   - NÃO usamos tipos Json (portabilidade) -> metadados em String JSON;
+//   - Valores financeiros futuros (Fase 2) serão armazenados em CENTAVOS (Int)
+//     para evitar problemas de ponto flutuante e garantir soma exata.
+// Para migrar para Postgres: trocar `provider = "sqlite"` por `"postgresql"`
+// e executar `prisma migrate dev` (as migrações geradas são portáveis).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String         @id @default(cuid())
+  name         String
+  email        String         @unique
+  passwordHash String
+  // role: "USER" | "ADMIN" (controle de acesso por usuário — Fase 1/7)
+  role         String         @default("USER")
+  isActive     Boolean        @default(true)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  refreshTokens RefreshToken[]
+  auditLogs    AuditLog[]
+}
+
+// Refresh tokens armazenados como HASH (nunca o valor em claro) para que
+// um vazamento do banco não permita sequestro de sessão.
+model RefreshToken {
+  id        String    @id @default(cuid())
+  tokenHash String    @unique
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+}
+
+// Trilha de auditoria (requisito de segurança / LGPD — item 8).
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  // Ex.: "auth.register", "auth.login", "user.update"
+  action     String
+  entityType String?
+  entityId   String?
+  // JSON serializado como String (portabilidade SQLite <-> Postgres)
+  metadata   String?
+  ip         String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  @@index([userId, createdAt])
+}

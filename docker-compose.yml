@@ -1,0 +1,49 @@
+# Infraestrutura — Assistente Financeiro via WhatsApp
+# Preparado para produção com PostgreSQL. Em ambiente sem Docker,
+# o backend roda com SQLite (ver README — seção "Sem Docker").
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-assist_fin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no .env}
+      POSTGRES_DB: ${POSTGRES_DB:-assist_fin}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-assist_fin}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build: ./backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      # Troque o provider no schema.prisma para "postgresql" antes de subir.
+      DATABASE_URL: postgresql://${POSTGRES_USER:-assist_fin}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-assist_fin}?schema=public
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?gere com openssl rand -base64 48}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?gere com openssl rand -base64 48}
+      JWT_ACCESS_TTL: ${JWT_ACCESS_TTL:-15m}
+      JWT_REFRESH_TTL_DAYS: ${JWT_REFRESH_TTL_DAYS:-7}
+      COOKIE_SECURE: ${COOKIE_SECURE:-true}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:8080}
+    ports:
+      - "4000:4000"
+
+  web:
+    build: ./frontend
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "8080:80"
+
+volumes:
+  pgdata:
